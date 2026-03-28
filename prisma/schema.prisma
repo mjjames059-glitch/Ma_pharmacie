@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  password  String
+  name      String
+  role      UserRole   @default(PHARMACIST)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  medicineTransactions MedicineTransaction[]
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  PHARMACIST
+  CASHIER
+  MANAGER
+}
+
+// Medicine/Drug model
+model Medicine {
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  dosage        String     // e.g., "500mg"
+  form          String     // e.g., "tablet", "capsule", "syrup"
+  pricePerUnit  Float
+  quantity      Int        @default(0)
+  minStock      Int        @default(10)
+  maxStock      Int        @default(1000)
+  expiryDate    DateTime?
+  supplier      String?
+  batchNumber   String?
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  transactions  MedicineTransaction[]
+  audits        AuditLog[]
+
+  @@map("medicines")
+}
+
+// Transaction model for sales/purchases
+model MedicineTransaction {
+  id              String          @id @default(cuid())
+  transactionType TransactionType
+  quantity        Int
+  pricePerUnit    Float
+  totalPrice      Float
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Foreign keys
+  medicineId      String
+  medicine        Medicine        @relation(fields: [medicineId], references: [id])
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@map("medicine_transactions")
+}
+
+enum TransactionType {
+  SALE
+  PURCHASE
+  ADJUSTMENT
+  RETURN
+}
+
+// Audit log for tracking changes
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // e.g., "MEDICINE_ADDED", "INVENTORY_UPDATED"
+  details   String   // JSON stored as string
+  createdAt DateTime @default(now())
+
+  // Foreign keys
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  medicineId String?
+  medicine   Medicine? @relation(fields: [medicineId], references: [id])
+
+  @@map("audit_logs")
+}
